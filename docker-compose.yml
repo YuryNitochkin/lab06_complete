@@ -1,0 +1,66 @@
+networks:
+  airflow_network:
+    driver: bridge
+
+services:
+  airflow-webserver:
+    image: yurynit/nitochkin_lab06:latest
+    networks:
+      - airflow_network
+    environment:
+      AIRFLOW__DATABASE__LOAD_DEFAULT_CONNECTIONS: False
+      AIRFLOW__CORE__CONFIG_FILE: /usr/local/airflow/airflow.cfg
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+      AIRFLOW__CORE__DAGS_FOLDER: ${AIRFLOW_DAGS_FOLDER:-/usr/local/airflow/dags}
+    ports:
+      - "8092:8080"
+    depends_on:
+      - postgres
+      - airflow-scheduler
+    entrypoint: /bin/bash -c "airflow webserver"
+
+  airflow-scheduler:
+    image: yurynit/nitochkin_lab06:latest
+    networks:
+      - airflow_network
+    environment:
+      AIRFLOW__CORE__CREATE_DEFAULT_CONNS: "False"
+      AIRFLOW__CORE__CONFIG_FILE: /usr/local/airflow/airflow.cfg
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+      AIRFLOW__CORE__DAGS_FOLDER: ${AIRFLOW_DAGS_FOLDER:-/usr/local/airflow/dags}
+    ports:
+      - "8893:8793"
+    depends_on:
+      - postgres
+    command: airflow scheduler
+
+  postgres:
+    image: postgres:13
+    networks:
+      - airflow_network
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    ports:
+      - "6432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  airflow-connections:
+    image: yurynit/nitochkin_lab06:latest
+    networks:
+      - airflow_network
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+    entrypoint: /bin/bash -c "airflow db check && airflow connections add 'local_click' --conn-type 'Email' --conn-host '212.233.73.6' --conn-schema 'default' --conn-login 'yurii_nitochkin' --conn-password 'GnZaO9N7TWX1LWVT' --conn-port '9000'"
+    depends_on:
+      - postgres
+      - airflow-webserver
+      - airflow-scheduler
+
+volumes:
+  postgres_data:
